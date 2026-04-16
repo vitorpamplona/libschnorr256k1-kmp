@@ -1,0 +1,2 @@
+headers = schnorr256k1.h
+staticLibraries = libschnorr256k1.a

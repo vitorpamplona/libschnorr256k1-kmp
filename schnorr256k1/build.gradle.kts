@@ -1,4 +1,5 @@
 import org.gradle.internal.os.OperatingSystem
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -9,7 +10,12 @@ plugins {
 group = "com.vitorpamplona"
 version = "1.0.0"
 
+val libschnorrDir = rootProject.projectDir.resolve("libschnorr256k1")
+
 kotlin {
+    applyDefaultHierarchyTemplate()
+
+    // ==================== JVM ====================
     jvm {
         compilations.all {
             kotlinOptions.jvmTarget = "17"
@@ -23,6 +29,7 @@ kotlin {
         }
     }
 
+    // ==================== Android ====================
     androidTarget {
         compilations.all {
             kotlinOptions.jvmTarget = "17"
@@ -30,19 +37,65 @@ kotlin {
         publishLibraryVariants("release")
     }
 
+    // ==================== Native ====================
+    linuxX64()
+    macosX64()
+    macosArm64()
+    iosArm64()
+    iosX64()
+    iosSimulatorArm64()
+
+    // ==================== JS ====================
+    js(IR) {
+        browser {
+            testTask {
+                useMocha()
+            }
+        }
+        nodejs()
+    }
+
+    // ==================== Wasm ====================
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+        nodejs()
+    }
+
+    // ==================== cinterop for all native targets ====================
+    targets.withType<KotlinNativeTarget> {
+        val targetName = this.name
+        compilations.getByName("main") {
+            cinterops {
+                val schnorr256k1 by creating {
+                    defFile(project.file("src/nativeInterop/cinterop/schnorr256k1.def"))
+                    includeDirs(libschnorrDir.resolve("include"))
+                    extraOpts(
+                        "-libraryPath",
+                        layout.buildDirectory.dir("native/$targetName").get().asFile.absolutePath,
+                    )
+                }
+            }
+        }
+    }
+
+    // ==================== Source sets ====================
     sourceSets {
-        val commonMain by getting
-        val commonTest by getting {
+        commonMain {}
+        commonTest {
             dependencies {
                 implementation(libs.kotlin.test)
             }
         }
-        val jvmMain by getting
-        val jvmTest by getting
-        val androidMain by getting
+        jvmMain {}
+        androidMain {}
+        nativeMain {}
+        jsMain {}
+        val wasmJsMain by getting
     }
 }
 
+// ==================== Android ====================
 android {
     namespace = "com.vitorpamplona.schnorr256k1"
     compileSdk = 35
@@ -50,11 +103,6 @@ android {
         minSdk = 26
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
-        }
-        externalNativeBuild {
-            cmake {
-                cppFlags("")
-            }
         }
     }
     externalNativeBuild {
@@ -69,17 +117,17 @@ android {
     }
 }
 
-// Build JNI shared library for JVM (desktop)
+// ==================== Desktop JVM: build JNI shared library ====================
 val buildNativeJvm by tasks.registering(Exec::class) {
     val nativeDir = layout.buildDirectory.dir("native/jvm").get().asFile
-    val buildDir = layout.buildDirectory.dir("cmake-jvm").get().asFile
+    val cmakeBuildDir = layout.buildDirectory.dir("cmake-jvm").get().asFile
 
     doFirst {
-        buildDir.mkdirs()
+        cmakeBuildDir.mkdirs()
         nativeDir.mkdirs()
     }
 
-    workingDir = buildDir
+    workingDir = cmakeBuildDir
 
     val os = OperatingSystem.current()
     val javaHome = System.getProperty("java.home") ?: System.getenv("JAVA_HOME") ?: ""
@@ -103,19 +151,86 @@ val buildNativeJvm by tasks.registering(Exec::class) {
 
 val compileNativeJvm by tasks.registering(Exec::class) {
     dependsOn(buildNativeJvm)
-    val buildDir = layout.buildDirectory.dir("cmake-jvm").get().asFile
-    workingDir = buildDir
+    val cmakeBuildDir = layout.buildDirectory.dir("cmake-jvm").get().asFile
+    workingDir = cmakeBuildDir
     commandLine("cmake", "--build", ".", "--config", "Release")
 }
 
-tasks.named("jvmProcessResources") {
-    dependsOn(compileNativeJvm)
+tasks.named("jvmProcessResources") { dependsOn(compileNativeJvm) }
+tasks.named("jvmTest") { dependsOn(compileNativeJvm) }
+
+// ==================== Native: build static C library for each target ====================
+fun registerNativeBuildTasks(targetName: String, cmakeFlags: List<String> = emptyList()) {
+    val outputDir = layout.buildDirectory.dir("native/$targetName").get().asFile
+    val cmakeBuildDir = layout.buildDirectory.dir("cmake-$targetName").get().asFile
+
+    val configureTask = tasks.register<Exec>("configureNative_$targetName") {
+        doFirst {
+            cmakeBuildDir.mkdirs()
+            outputDir.mkdirs()
+        }
+        workingDir = cmakeBuildDir
+        commandLine(
+            listOf(
+                "cmake", libschnorrDir.absolutePath,
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DBUILD_TESTS=OFF",
+                "-DBUILD_BENCH=OFF",
+                "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=${outputDir.absolutePath}",
+            ) + cmakeFlags,
+        )
+    }
+
+    val buildTask = tasks.register<Exec>("buildNative_$targetName") {
+        dependsOn(configureTask)
+        workingDir = cmakeBuildDir
+        commandLine("cmake", "--build", ".", "--config", "Release")
+    }
+
+    tasks.matching {
+        it.name.startsWith("cinteropSchnorr256k1") &&
+            it.name.endsWith(targetName.replaceFirstChar { c -> c.uppercase() })
+    }.configureEach {
+        dependsOn(buildTask)
+    }
 }
 
-tasks.named("jvmTest") {
-    dependsOn(compileNativeJvm)
+val os = OperatingSystem.current()
+if (os.isLinux) {
+    registerNativeBuildTasks("linuxX64")
+}
+if (os.isMacOsX) {
+    registerNativeBuildTasks("macosX64", listOf("-DCMAKE_OSX_ARCHITECTURES=x86_64"))
+    registerNativeBuildTasks("macosArm64", listOf("-DCMAKE_OSX_ARCHITECTURES=arm64"))
+    registerNativeBuildTasks(
+        "iosArm64",
+        listOf(
+            "-DCMAKE_SYSTEM_NAME=iOS",
+            "-DCMAKE_OSX_ARCHITECTURES=arm64",
+            "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0",
+        ),
+    )
+    registerNativeBuildTasks(
+        "iosX64",
+        listOf(
+            "-DCMAKE_SYSTEM_NAME=iOS",
+            "-DCMAKE_OSX_ARCHITECTURES=x86_64",
+            "-DCMAKE_OSX_SYSROOT=iphonesimulator",
+            "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0",
+        ),
+    )
+    registerNativeBuildTasks(
+        "iosSimulatorArm64",
+        listOf(
+            "-DCMAKE_SYSTEM_NAME=iOS",
+            "-DCMAKE_OSX_ARCHITECTURES=arm64",
+            "-DCMAKE_OSX_SYSROOT=iphonesimulator",
+            "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0",
+        ),
+    )
 }
 
+// ==================== Publishing ====================
 publishing {
     publications {
         create<MavenPublication>("maven") {
