@@ -1,4 +1,5 @@
 import org.gradle.internal.os.OperatingSystem
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
 plugins {
@@ -17,8 +18,8 @@ kotlin {
 
     // ==================== JVM ====================
     jvm {
-        compilations.all {
-            kotlinOptions.jvmTarget = "17"
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
         }
         testRuns["test"].executionTask.configure {
             useJUnitPlatform()
@@ -31,8 +32,8 @@ kotlin {
 
     // ==================== Android ====================
     androidTarget {
-        compilations.all {
-            kotlinOptions.jvmTarget = "17"
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
         }
         publishLibraryVariants("release")
     }
