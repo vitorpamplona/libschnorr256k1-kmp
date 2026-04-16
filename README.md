@@ -198,6 +198,55 @@ schnorr256k1-kmp/
 └── gradle/libs.versions.toml
 ```
 
+## Publishing to Maven Central
+
+Releases are published to the [Sonatype Central Portal](https://central.sonatype.com/)
+via the [Vanniktech Maven Publish plugin](https://vanniktech.github.io/gradle-maven-publish-plugin/).
+
+### Required credentials
+
+Configure the following in `~/.gradle/gradle.properties` (or via environment
+variables / CI secrets):
+
+```properties
+# Sonatype Central Portal user token (https://central.sonatype.com/account)
+mavenCentralUsername=<central-portal-token-username>
+mavenCentralPassword=<central-portal-token-password>
+
+# GPG signing key (ASCII-armored, single-line with \n escapes, or use in-memory form)
+signingInMemoryKey=<ascii-armored-private-key>
+signingInMemoryKeyId=<key-id>
+signingInMemoryKeyPassword=<passphrase>
+```
+
+Equivalent environment variables (for CI):
+
+```
+ORG_GRADLE_PROJECT_mavenCentralUsername
+ORG_GRADLE_PROJECT_mavenCentralPassword
+ORG_GRADLE_PROJECT_signingInMemoryKey
+ORG_GRADLE_PROJECT_signingInMemoryKeyId
+ORG_GRADLE_PROJECT_signingInMemoryKeyPassword
+```
+
+### Dry run locally
+
+```bash
+./gradlew :schnorr256k1:publishToMavenLocal
+```
+
+### Release to Maven Central
+
+```bash
+# Uploads and creates a staging deployment on Central Portal.
+# Because automaticRelease = false, you must then manually release via the portal UI.
+./gradlew :schnorr256k1:publishAndReleaseToMavenCentral
+```
+
+Native targets (Linux, iOS) can only be published from a machine capable of
+building them — in practice, release from a macOS runner to get the full matrix
+(macOS, iOS, JVM, Android, JS, Wasm), and from a Linux runner for `linuxX64`.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
