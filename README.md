@@ -140,6 +140,34 @@ make
 ./bench_vs_acinq
 ```
 
+### Current results
+
+Linux x86_64, GCC 13.3.0 with LTO + BMI2/ADX, vs `libsecp256k1-jni.so` from
+ACINQ `secp256k1-kmp-jni-jvm-linux` 0.18.0. Lower µs is better.
+
+| Operation                     | ACINQ (µs) | Ours (µs) | Speedup |
+|-------------------------------|-----------:|----------:|--------:|
+| pubkeyCreate                  |       19.8 |      15.1 |   1.31x |
+| sign (full, derive pubkey)    |       38.9 |      31.5 |   1.24x |
+| sign (cached pubkey)          |       19.9 |      15.4 |   1.30x |
+| verify (BIP-340)              |       38.1 |      40.1 |   0.95x |
+| verifyFast (Nostr safe)       |       38.1 |      35.0 |   1.09x |
+| ECDH (cached pubkey)          |       38.0 |      33.1 |   1.15x |
+
+Batch verify scales sub-linearly — our batched API vs ACINQ's per-signature verify:
+
+| Batch size | ACINQ per-sig (µs) | Ours batched (µs) | Speedup |
+|-----------:|-------------------:|------------------:|--------:|
+|          4 |               38.0 |              13.7 |    2.8x |
+|          8 |               37.2 |               9.7 |    3.8x |
+|         16 |               37.6 |               7.1 |    5.3x |
+|         32 |               37.5 |               6.5 |    5.8x |
+|         64 |               38.1 |               5.5 |    7.0x |
+|        200 |               39.4 |               4.9 |    8.1x |
+
+Cross-verification passes in both directions (signatures produced by each
+library verify under the other).
+
 ## Project Structure
 
 ```
