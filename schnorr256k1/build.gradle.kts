@@ -1,3 +1,4 @@
+import com.vanniktech.maven.publish.SonatypeHost
 import org.gradle.internal.os.OperatingSystem
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
@@ -5,7 +6,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
-    `maven-publish`
+    alias(libs.plugins.vanniktech.maven.publish)
 }
 
 group = "com.vitorpamplona"
@@ -232,12 +233,50 @@ if (os.isMacOsX) {
 }
 
 // ==================== Publishing ====================
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            groupId = "com.vitorpamplona"
-            artifactId = "schnorr256k1-kmp"
-            version = project.version.toString()
+mavenPublishing {
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = false)
+    signAllPublications()
+
+    coordinates(
+        groupId = group.toString(),
+        artifactId = "schnorr256k1-kmp",
+        version = version.toString(),
+    )
+
+    pom {
+        name.set("schnorr256k1-kmp")
+        description.set(
+            "Kotlin Multiplatform bindings for libschnorr256k1 — a high-performance " +
+                "secp256k1 library optimized for Nostr/BIP-340 workflows.",
+        )
+        url.set("https://github.com/vitorpamplona/libschnorr256k1-kmp")
+        inceptionYear.set("2026")
+
+        licenses {
+            license {
+                name.set("MIT License")
+                url.set("https://opensource.org/licenses/MIT")
+                distribution.set("repo")
+            }
+        }
+
+        developers {
+            developer {
+                id.set("vitorpamplona")
+                name.set("Vitor Pamplona")
+                url.set("https://github.com/vitorpamplona")
+            }
+        }
+
+        scm {
+            url.set("https://github.com/vitorpamplona/libschnorr256k1-kmp")
+            connection.set("scm:git:git://github.com/vitorpamplona/libschnorr256k1-kmp.git")
+            developerConnection.set("scm:git:ssh://git@github.com/vitorpamplona/libschnorr256k1-kmp.git")
+        }
+
+        issueManagement {
+            system.set("GitHub")
+            url.set("https://github.com/vitorpamplona/libschnorr256k1-kmp/issues")
         }
     }
 }
