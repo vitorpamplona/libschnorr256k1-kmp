@@ -25,7 +25,7 @@ actual object Schnorr256k1 {
 
     actual fun ensureLoaded() {
         if (!loaded) {
-            System.loadLibrary("schnorr256k1_jni")
+            NativeLoader.load()
             nativeInit()
             loaded = true
         }

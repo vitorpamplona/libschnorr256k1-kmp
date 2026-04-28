@@ -62,10 +62,6 @@ kotlin {
         }
         testRuns["test"].executionTask.configure {
             useJUnitPlatform()
-            systemProperty(
-                "java.library.path",
-                layout.buildDirectory.dir("native/jvm").get().asFile.absolutePath,
-            )
         }
     }
 
@@ -147,7 +143,17 @@ kotlin {
                 implementation(libs.kotlin.test)
             }
         }
-        jvmMain {}
+        jvmMain {
+            dependencies {
+                // Bundle all four JNI artifacts so consumers get the right
+                // native binary out of the box; NativeLoader picks one at
+                // runtime by os.name/os.arch.
+                runtimeOnly(project(":jni-jvm-linux-x86_64"))
+                runtimeOnly(project(":jni-jvm-linux-aarch64"))
+                runtimeOnly(project(":jni-jvm-darwin-x86_64"))
+                runtimeOnly(project(":jni-jvm-darwin-aarch64"))
+            }
+        }
         androidMain {}
         nativeMain {}
         jsMain {}
@@ -159,55 +165,46 @@ kotlin {
     }
 }
 
-// ==================== Desktop JVM: build JNI shared library ====================
-val buildNativeJvm by tasks.registering(Exec::class) {
-    val nativeDir = layout.buildDirectory.dir("native/jvm").get().asFile
-    val cmakeBuildDir = layout.buildDirectory.dir("cmake-jvm").get().asFile
-
-    doFirst {
-        cmakeBuildDir.mkdirs()
-        nativeDir.mkdirs()
-    }
-
-    workingDir = cmakeBuildDir
-
+// ==================== Desktop JVM: JNI library is provided by ====================
+// :jni-jvm-{linux,darwin}-{x86_64,aarch64} subprojects. Their JARs ship
+// libschnorr256k1_jni as a classpath resource that NativeLoader extracts at
+// runtime — so :jvmTest needs no java.library.path tweak.
+//
+// The Android host-test target (Android unit tests running on JVM) calls
+// System.loadLibrary directly from Schnorr256k1.android.kt, so it still needs
+// a flat directory containing libschnorr256k1_jni.{so,dylib}. We reuse the
+// host's :jni-jvm-* subproject build output for that.
+val hostJniProjectName = run {
+    val arch = System.getProperty("os.arch").lowercase()
     val os = OperatingSystem.current()
-    val javaHome = System.getProperty("java.home") ?: System.getenv("JAVA_HOME") ?: ""
-    val jniInclude = if (javaHome.isNotEmpty()) "$javaHome/include" else ""
-    val jniPlatformInclude = when {
-        os.isLinux -> "$jniInclude/linux"
-        os.isMacOsX -> "$jniInclude/darwin"
-        os.isWindows -> "$jniInclude/win32"
-        else -> ""
+    val archClassifier = when (arch) {
+        "amd64", "x86_64", "x64" -> "x86_64"
+        "aarch64", "arm64" -> "aarch64"
+        else -> null
     }
+    val osClassifier = when {
+        os.isLinux -> "linux"
+        os.isMacOsX -> "darwin"
+        else -> null
+    }
+    if (osClassifier != null && archClassifier != null) {
+        ":jni-jvm-$osClassifier-$archClassifier"
+    } else {
+        null
+    }
+}
 
-    commandLine(
-        cmakeExecutable,
-        "${rootProject.projectDir}/jni",
-        "-DCMAKE_BUILD_TYPE=Release",
-        "-DJNI_INCLUDE_DIR=$jniInclude",
-        "-DJNI_INCLUDE_DIR_PLATFORM=$jniPlatformInclude",
-        "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${nativeDir.absolutePath}",
+if (hostJniProjectName != null) {
+    val hostJniProject = project(hostJniProjectName)
+    val hostNativeDir = hostJniProject.layout.buildDirectory.dir(
+        "jni-native/${hostJniProjectName.removePrefix(":jni-jvm-")}",
     )
-}
 
-val compileNativeJvm by tasks.registering(Exec::class) {
-    dependsOn(buildNativeJvm)
-    val cmakeBuildDir = layout.buildDirectory.dir("cmake-jvm").get().asFile
-    workingDir = cmakeBuildDir
-    commandLine(cmakeExecutable, "--build", ".", "--config", "Release")
-}
-
-tasks.named("jvmProcessResources") { dependsOn(compileNativeJvm) }
-tasks.named("jvmTest") { dependsOn(compileNativeJvm) }
-
-tasks.withType<Test>().configureEach {
-    if (name.contains("AndroidHostTest", ignoreCase = true)) {
-        dependsOn(compileNativeJvm)
-        systemProperty(
-            "java.library.path",
-            layout.buildDirectory.dir("native/jvm").get().asFile.absolutePath,
-        )
+    tasks.withType<Test>().configureEach {
+        if (name.contains("AndroidHostTest", ignoreCase = true)) {
+            dependsOn("$hostJniProjectName:buildJniLibrary")
+            systemProperty("java.library.path", hostNativeDir.get().asFile.absolutePath)
+        }
     }
 }
 
