@@ -7,7 +7,7 @@ Kotlin Multiplatform bindings for [libschnorr256k1](https://github.com/vitorpamp
 | Platform | Targets | Mechanism |
 |----------|---------|-----------|
 | **Android** | arm64-v8a, x86_64 | JNI (shared library via CMake) |
-| **JVM** | Linux x86_64, macOS arm64/x86_64 | JNI (shared library via CMake) |
+| **JVM** | Linux x86_64/aarch64, macOS arm64/x86_64 | JNI (per-OS/arch JAR resource, auto-extracted by `NativeLoader`) |
 | **iOS** | arm64, x64, simulatorArm64 | Kotlin/Native cinterop (static library) |
 | **macOS** | arm64, x86_64 | Kotlin/Native cinterop (static library) |
 | **Linux** | x86_64 | Kotlin/Native cinterop (static library) |
@@ -21,6 +21,21 @@ dependencies {
     implementation("com.vitorpamplona:schnorr256k1-kmp:1.0.0")
 }
 ```
+
+For JVM consumers, the right native binary is resolved automatically — the
+`schnorr256k1-kmp-jvm` artifact pulls in four classifier-style siblings that
+each ship a prebuilt `libschnorr256k1_jni.{so,dylib}` as a classpath resource:
+
+- `com.vitorpamplona:schnorr256k1-kmp-jni-jvm-linux-x86_64`
+- `com.vitorpamplona:schnorr256k1-kmp-jni-jvm-linux-aarch64`
+- `com.vitorpamplona:schnorr256k1-kmp-jni-jvm-darwin-x86_64`
+- `com.vitorpamplona:schnorr256k1-kmp-jni-jvm-darwin-aarch64`
+
+`NativeLoader` (in the JVM source set) detects `os.name`/`os.arch` at runtime,
+extracts the matching binary from the classpath to a temp directory, and
+`System.load`s it. No `java.library.path` setup or manual `build_native.sh`
+step is required for downstream JVM consumers — the JVM cross-validation
+benchmark also runs out of the box.
 
 ## API Reference
 
@@ -73,8 +88,13 @@ cd libschnorr256k1-kmp
 
 ### Build native libraries
 
+The desktop JVM JNI shared library is built automatically by Gradle when you
+run `:schnorr256k1:jvmTest` (via the host's `:jni-jvm-{os}-{arch}` subproject).
+The script below is only needed if you want a standalone CMake build outside
+the Gradle flow.
+
 ```bash
-# Desktop JVM (JNI shared library)
+# Desktop JVM (JNI shared library) — optional, Gradle does this on demand
 ./scripts/build_native.sh
 
 # Desktop + Android
@@ -175,7 +195,12 @@ schnorr256k1-kmp/
 ├── libschnorr256k1/              # Git submodule (C library)
 ├── jni/
 │   ├── CMakeLists.txt            # JNI shared library build
-│   └── jni_bridge.c              # JNI bridge (C → JVM/Android)
+│   ├── jni_bridge.c              # JNI bridge (C → JVM/Android)
+│   └── jvm/                      # Per-OS/arch JNI publication subprojects
+│       ├── linux-x86_64/build.gradle.kts
+│       ├── linux-aarch64/build.gradle.kts
+│       ├── darwin-x86_64/build.gradle.kts
+│       └── darwin-aarch64/build.gradle.kts
 ├── bench/
 │   ├── CMakeLists.txt            # Benchmark build
 │   └── bench_vs_acinq.c          # Performance comparison
@@ -250,6 +275,18 @@ ORG_GRADLE_PROJECT_signingInMemoryKeyPassword=some_password
 Native targets (Linux, iOS) can only be published from a machine capable of
 building them — in practice, release from a macOS runner to get the full matrix
 (macOS, iOS, JVM, Android, JS, Wasm), and from a Linux runner for `linuxX64`.
+
+The four `:jni-jvm-{os}-{arch}` subprojects are also host-gated:
+
+- `:jni-jvm-linux-x86_64` builds natively on a Linux x86_64 runner.
+- `:jni-jvm-linux-aarch64` builds natively on a Linux aarch64 runner, or
+  cross-compiles from Linux x86_64 if `aarch64-linux-gnu-gcc` is on `PATH`.
+- `:jni-jvm-darwin-x86_64` and `:jni-jvm-darwin-aarch64` build on a macOS
+  runner using Apple's native toolchain (`-DCMAKE_OSX_ARCHITECTURES=...`).
+
+Each subproject's `buildJniLibrary` task is `onlyIf { canBuildHere }` — on a
+host that can't build for that classifier, the JAR is empty and that
+publication should not be released from that runner.
 
 ## License
 
