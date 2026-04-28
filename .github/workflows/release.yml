@@ -1,0 +1,88 @@
+# Releases all Maven Central artifacts for a tagged version.
+#
+# Two jobs run in parallel, each publishing the artifacts only its host can
+# produce a real binary for. Maven Central coordinates are immutable, so each
+# `:jni-jvm-{classifier}` is published from exactly one runner:
+#
+#   ubuntu-latest -> :jni-jvm-linux-x86_64, :jni-jvm-linux-aarch64 (via aarch64-linux-gnu cross)
+#   macos-14      -> :jni-jvm-darwin-aarch64, :jni-jvm-darwin-x86_64 (via -DCMAKE_OSX_ARCHITECTURES=x86_64)
+#                    :schnorr256k1 (multiplatform module: android/ios*/macosArm64/jvm/js/wasm-js)
+#
+# Trigger: push a `v*` tag (e.g. `git tag v1.0.2 && git push --tags`), or run
+# manually via the Actions tab.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   MAVEN_CENTRAL_USERNAME           Sonatype Central Portal user-token username
+#   MAVEN_CENTRAL_PASSWORD           Sonatype Central Portal user-token password
+#   SIGNING_IN_MEMORY_KEY            ASCII-armored GPG private key (full block)
+#   SIGNING_IN_MEMORY_KEY_PASSWORD   Passphrase for the GPG key (omit secret if none)
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-linux-jni:
+    name: Publish linux JNI artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install aarch64-linux-gnu cross-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Publish :jni-jvm-linux-{x86_64,aarch64}
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_IN_MEMORY_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon --stacktrace \
+            :jni-jvm-linux-x86_64:publishAndReleaseToMavenCentral \
+            :jni-jvm-linux-aarch64:publishAndReleaseToMavenCentral
+
+  publish-macos:
+    name: Publish darwin JNI + multiplatform artifacts
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Publish :jni-jvm-darwin-* and :schnorr256k1
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_IN_MEMORY_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon --stacktrace \
+            :jni-jvm-darwin-aarch64:publishAndReleaseToMavenCentral \
+            :jni-jvm-darwin-x86_64:publishAndReleaseToMavenCentral \
+            :schnorr256k1:publishAndReleaseToMavenCentral

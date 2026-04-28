@@ -18,7 +18,7 @@ Kotlin Multiplatform bindings for [libschnorr256k1](https://github.com/vitorpamp
 
 ```kotlin
 dependencies {
-    implementation("com.vitorpamplona:schnorr256k1-kmp:1.0.1")
+    implementation("com.vitorpamplona:schnorr256k1-kmp:1.0.2")
 }
 ```
 
@@ -266,27 +266,35 @@ ORG_GRADLE_PROJECT_signingInMemoryKeyPassword=some_password
 
 ### Release to Maven Central
 
+The recommended path is the [`.github/workflows/release.yml`](.github/workflows/release.yml)
+GitHub Actions workflow. Push a `v*` tag (or trigger it manually) and it
+publishes every artifact for that version in one go:
+
+| Runner          | Artifacts                                                                                                              |
+|-----------------|------------------------------------------------------------------------------------------------------------------------|
+| `ubuntu-latest` | `:jni-jvm-linux-x86_64` (native), `:jni-jvm-linux-aarch64` (cross via `aarch64-linux-gnu-gcc`)                          |
+| `macos-14`      | `:jni-jvm-darwin-aarch64` (native), `:jni-jvm-darwin-x86_64` (cross via `-DCMAKE_OSX_ARCHITECTURES=x86_64`), `:schnorr256k1` (Android/iOS/macOS arm64/JVM/JS/Wasm) |
+
+Each `:jni-jvm-*` coordinate is published from exactly one runner so Maven
+Central's immutability never bites. Required repository secrets:
+
+- `MAVEN_CENTRAL_USERNAME` — Central Portal user-token username
+- `MAVEN_CENTRAL_PASSWORD` — Central Portal user-token password
+- `SIGNING_IN_MEMORY_KEY` — ASCII-armored GPG private key (full block)
+- `SIGNING_IN_MEMORY_KEY_PASSWORD` — passphrase for the GPG key (omit if none)
+
+Manual / local publish (skips the JNI subprojects, which is what produced the
+broken 1.0.1 release — prefer the workflow):
+
 ```bash
-# Uploads and creates a staging deployment on Central Portal.
-# Because automaticRelease = false, you must then manually release via the portal UI.
+# Uploads and releases the multiplatform module only.
 ./gradlew :schnorr256k1:publishAndReleaseToMavenCentral
 ```
 
-Native targets (Linux, iOS) can only be published from a machine capable of
-building them — in practice, release from a macOS runner to get the full matrix
-(macOS, iOS, JVM, Android, JS, Wasm), and from a Linux runner for `linuxX64`.
-
-The four `:jni-jvm-{os}-{arch}` subprojects are also host-gated:
-
-- `:jni-jvm-linux-x86_64` builds natively on a Linux x86_64 runner.
-- `:jni-jvm-linux-aarch64` builds natively on a Linux aarch64 runner, or
-  cross-compiles from Linux x86_64 if `aarch64-linux-gnu-gcc` is on `PATH`.
-- `:jni-jvm-darwin-x86_64` and `:jni-jvm-darwin-aarch64` build on a macOS
-  runner using Apple's native toolchain (`-DCMAKE_OSX_ARCHITECTURES=...`).
-
-Each subproject's `buildJniLibrary` task is `onlyIf { canBuildHere }` — on a
-host that can't build for that classifier, the JAR is empty and that
-publication should not be released from that runner.
+Each `:jni-jvm-*` subproject's `buildJniLibrary` is gated by
+`onlyIf { canBuildHere }`, so running it from the wrong host produces an empty
+JAR. The workflow above sidesteps this by routing each classifier to a runner
+that can produce a real binary.
 
 ## License
 
