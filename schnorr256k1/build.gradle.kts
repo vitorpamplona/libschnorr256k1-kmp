@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "com.vitorpamplona"
-version = "1.0.0"
+version = "1.0.1"
 
 val libschnorrDir = rootProject.projectDir.resolve("libschnorr256k1")
 
