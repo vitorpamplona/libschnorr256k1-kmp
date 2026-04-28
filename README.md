@@ -18,7 +18,7 @@ Kotlin Multiplatform bindings for [libschnorr256k1](https://github.com/vitorpamp
 
 ```kotlin
 dependencies {
-    implementation("com.vitorpamplona:schnorr256k1-kmp:1.0.2")
+    implementation("com.vitorpamplona.schnorr256k1:schnorr256k1-kmp:1.0.3")
 }
 ```
 

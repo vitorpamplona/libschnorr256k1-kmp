@@ -10,8 +10,8 @@ plugins {
     alias(libs.plugins.vanniktech.maven.publish)
 }
 
-group = "com.vitorpamplona"
-version = "1.0.2"
+group = "com.vitorpamplona.schnorr256k1"
+version = "1.0.3"
 
 val libschnorrDir = rootProject.projectDir.resolve("libschnorr256k1")
 
