@@ -43,3 +43,5 @@ cmake-build-*/
 
 # BlueJ files
 *.ctxt
+
+/.claude/settings.local.json

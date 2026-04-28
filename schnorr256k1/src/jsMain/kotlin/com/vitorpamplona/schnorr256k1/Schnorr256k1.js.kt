@@ -114,9 +114,9 @@ actual object Schnorr256k1 {
         sigs: List<ByteArray>,
         msgs: List<ByteArray>,
     ): Boolean {
-        val jsSigs = js("[]") as dynamic
+        val jsSigs: dynamic = js("[]")
         sigs.forEach { jsSigs.push(it.toUint8Array()) }
-        val jsMsgs = js("[]") as dynamic
+        val jsMsgs: dynamic = js("[]")
         msgs.forEach { jsMsgs.push(it.toUint8Array()) }
         return bridge().schnorrVerifyBatch(pub.toUint8Array(), jsSigs, jsMsgs) as Boolean
     }

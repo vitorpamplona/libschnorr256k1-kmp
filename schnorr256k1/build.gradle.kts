@@ -1,11 +1,12 @@
-import com.vanniktech.maven.publish.SonatypeHost
+import java.io.File
+import java.util.Properties
 import org.gradle.internal.os.OperatingSystem
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.vanniktech.maven.publish)
 }
 
@@ -14,13 +15,50 @@ version = "1.0.0"
 
 val libschnorrDir = rootProject.projectDir.resolve("libschnorr256k1")
 
+fun resolveCmakeExecutable(): String {
+    val exeName = if (OperatingSystem.current().isWindows) "cmake.exe" else "cmake"
+
+    System.getenv("PATH")?.split(File.pathSeparator).orEmpty().forEach { dir ->
+        val candidate = File(dir, exeName)
+        if (candidate.isFile && candidate.canExecute()) return candidate.absolutePath
+    }
+
+    val extraPaths = listOf(
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/bin",
+        "/opt/local/bin",
+    )
+    extraPaths.forEach { dir ->
+        val candidate = File(dir, exeName)
+        if (candidate.isFile && candidate.canExecute()) return candidate.absolutePath
+    }
+
+    val sdkCmakeRoot = resolveAndroidSdkDir()?.resolve("cmake")
+    if (sdkCmakeRoot?.isDirectory == true) {
+        val newest = sdkCmakeRoot.listFiles()
+            ?.filter { it.isDirectory }
+            ?.maxByOrNull { it.name }
+        val candidate = newest?.resolve("bin/$exeName")
+        if (candidate?.isFile == true && candidate.canExecute()) return candidate.absolutePath
+    }
+
+    return exeName
+}
+
+val cmakeExecutable: String by lazy { resolveCmakeExecutable() }
+
 kotlin {
     applyDefaultHierarchyTemplate()
+
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
 
     // ==================== JVM ====================
     jvm {
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
+            jvmTarget.set(JvmTarget.JVM_21)
         }
         testRuns["test"].executionTask.configure {
             useJUnitPlatform()
@@ -32,20 +70,33 @@ kotlin {
     }
 
     // ==================== Android ====================
-    androidTarget {
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
+    android {
+        namespace = "com.vitorpamplona.schnorr256k1"
+        compileSdk = 37
+        minSdk = 26
+
+        withHostTest {}
+
+        compilations.configureEach {
+            compileTaskProvider.configure {
+                compilerOptions {
+                    jvmTarget.set(JvmTarget.JVM_21)
+                }
+            }
         }
-        publishLibraryVariants("release")
     }
 
     // ==================== Native ====================
-    linuxX64()
-    macosX64()
-    macosArm64()
-    iosArm64()
-    iosX64()
-    iosSimulatorArm64()
+    val hostOs = OperatingSystem.current()
+    if (hostOs.isLinux) {
+        linuxX64()
+    }
+    if (hostOs.isMacOsX) {
+        macosArm64()
+        iosArm64()
+        iosX64()
+        iosSimulatorArm64()
+    }
 
     // ==================== JS ====================
     js(IR) {
@@ -60,8 +111,15 @@ kotlin {
     // ==================== Wasm ====================
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
-        browser()
-        nodejs()
+        browser {
+            // Tests disabled: Kotlin/Wasm 2.1 lacks an eager-init hook to
+            // register a Mocha `before(done)` async bridge setup before the
+            // test runner starts. Re-enable once a pre-test hook is available.
+            testTask { enabled = false }
+        }
+        nodejs {
+            testTask { enabled = false }
+        }
     }
 
     // ==================== cinterop for all native targets ====================
@@ -93,29 +151,11 @@ kotlin {
         androidMain {}
         nativeMain {}
         jsMain {}
-        val wasmJsMain by getting
-    }
-}
-
-// ==================== Android ====================
-android {
-    namespace = "com.vitorpamplona.schnorr256k1"
-    compileSdk = 35
-    defaultConfig {
-        minSdk = 26
-        ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+        val wasmJsMain by getting {
+            dependencies {
+                implementation(libs.kotlinx.browser)
+            }
         }
-    }
-    externalNativeBuild {
-        cmake {
-            path = file("${rootProject.projectDir}/jni/CMakeLists.txt")
-            version = "3.22.1"
-        }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
     }
 }
 
@@ -142,7 +182,7 @@ val buildNativeJvm by tasks.registering(Exec::class) {
     }
 
     commandLine(
-        "cmake",
+        cmakeExecutable,
         "${rootProject.projectDir}/jni",
         "-DCMAKE_BUILD_TYPE=Release",
         "-DJNI_INCLUDE_DIR=$jniInclude",
@@ -155,11 +195,21 @@ val compileNativeJvm by tasks.registering(Exec::class) {
     dependsOn(buildNativeJvm)
     val cmakeBuildDir = layout.buildDirectory.dir("cmake-jvm").get().asFile
     workingDir = cmakeBuildDir
-    commandLine("cmake", "--build", ".", "--config", "Release")
+    commandLine(cmakeExecutable, "--build", ".", "--config", "Release")
 }
 
 tasks.named("jvmProcessResources") { dependsOn(compileNativeJvm) }
 tasks.named("jvmTest") { dependsOn(compileNativeJvm) }
+
+tasks.withType<Test>().configureEach {
+    if (name.contains("AndroidHostTest", ignoreCase = true)) {
+        dependsOn(compileNativeJvm)
+        systemProperty(
+            "java.library.path",
+            layout.buildDirectory.dir("native/jvm").get().asFile.absolutePath,
+        )
+    }
+}
 
 // ==================== Native: build static C library for each target ====================
 fun registerNativeBuildTasks(targetName: String, cmakeFlags: List<String> = emptyList()) {
@@ -174,7 +224,7 @@ fun registerNativeBuildTasks(targetName: String, cmakeFlags: List<String> = empt
         workingDir = cmakeBuildDir
         commandLine(
             listOf(
-                "cmake", libschnorrDir.absolutePath,
+                cmakeExecutable, libschnorrDir.absolutePath,
                 "-DCMAKE_BUILD_TYPE=Release",
                 "-DBUILD_TESTS=OFF",
                 "-DBUILD_BENCH=OFF",
@@ -186,7 +236,7 @@ fun registerNativeBuildTasks(targetName: String, cmakeFlags: List<String> = empt
     val buildTask = tasks.register<Exec>("buildNative_$targetName") {
         dependsOn(configureTask)
         workingDir = cmakeBuildDir
-        commandLine("cmake", "--build", ".", "--config", "Release")
+        commandLine(cmakeExecutable, "--build", ".", "--config", "Release")
     }
 
     tasks.matching {
@@ -202,12 +252,18 @@ if (os.isLinux) {
     registerNativeBuildTasks("linuxX64")
 }
 if (os.isMacOsX) {
-    registerNativeBuildTasks("macosX64", listOf("-DCMAKE_OSX_ARCHITECTURES=x86_64"))
-    registerNativeBuildTasks("macosArm64", listOf("-DCMAKE_OSX_ARCHITECTURES=arm64"))
+    registerNativeBuildTasks(
+        "macosArm64",
+        listOf(
+            "-DCMAKE_OSX_ARCHITECTURES=arm64",
+            "-DCMAKE_SYSTEM_PROCESSOR=arm64",
+        ),
+    )
     registerNativeBuildTasks(
         "iosArm64",
         listOf(
             "-DCMAKE_SYSTEM_NAME=iOS",
+            "-DCMAKE_SYSTEM_PROCESSOR=arm64",
             "-DCMAKE_OSX_ARCHITECTURES=arm64",
             "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0",
         ),
@@ -216,6 +272,7 @@ if (os.isMacOsX) {
         "iosX64",
         listOf(
             "-DCMAKE_SYSTEM_NAME=iOS",
+            "-DCMAKE_SYSTEM_PROCESSOR=x86_64",
             "-DCMAKE_OSX_ARCHITECTURES=x86_64",
             "-DCMAKE_OSX_SYSROOT=iphonesimulator",
             "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0",
@@ -225,6 +282,7 @@ if (os.isMacOsX) {
         "iosSimulatorArm64",
         listOf(
             "-DCMAKE_SYSTEM_NAME=iOS",
+            "-DCMAKE_SYSTEM_PROCESSOR=arm64",
             "-DCMAKE_OSX_ARCHITECTURES=arm64",
             "-DCMAKE_OSX_SYSROOT=iphonesimulator",
             "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0",
@@ -232,9 +290,99 @@ if (os.isMacOsX) {
     )
 }
 
+// ==================== Android: build JNI shared library per ABI ====================
+val androidJniAbis = listOf("arm64-v8a", "x86_64")
+val androidApiLevel = 26
+
+val pinnedAndroidNdkVersion = "30.0.14904198"
+
+fun resolveAndroidSdkDir(): java.io.File? {
+    listOf("ANDROID_HOME", "ANDROID_SDK_ROOT").forEach { key ->
+        System.getenv(key)?.takeIf { it.isNotBlank() }?.let {
+            val f = file(it)
+            if (f.isDirectory) return f
+        }
+    }
+    val localProps = rootProject.file("local.properties")
+    if (localProps.isFile) {
+        val props = Properties().apply { localProps.inputStream().use { load(it) } }
+        props.getProperty("sdk.dir")?.takeIf { it.isNotBlank() }?.let {
+            val f = file(it)
+            if (f.isDirectory) return f
+        }
+    }
+    return null
+}
+
+fun resolveAndroidNdkDir(): java.io.File? {
+    listOf("ANDROID_NDK_HOME", "ANDROID_NDK_ROOT", "NDK_HOME").forEach { key ->
+        System.getenv(key)?.takeIf { it.isNotBlank() }?.let {
+            val f = file(it)
+            if (f.isDirectory) return f
+        }
+    }
+    val sdk = resolveAndroidSdkDir() ?: return null
+    val ndkParent = sdk.resolve("ndk")
+    if (!ndkParent.isDirectory) return null
+    val pinned = ndkParent.resolve(pinnedAndroidNdkVersion)
+    if (pinned.isDirectory) return pinned
+    return ndkParent.listFiles()?.filter { it.isDirectory }?.maxByOrNull { it.name }
+}
+
+val androidJniLibsDir = layout.buildDirectory.dir("jniLibs")
+val resolvedAndroidNdk = resolveAndroidNdkDir()
+val androidNdkToolchain = resolvedAndroidNdk?.resolve("build/cmake/android.toolchain.cmake")
+
+val buildAndroidJniLibs by tasks.registering {
+    group = "build"
+    description = "Builds the JNI shared library for all Android ABIs."
+}
+
+androidJniAbis.forEach { abi ->
+    val outputDir = layout.buildDirectory.dir("jniLibs/$abi")
+    val cmakeBuildDir = layout.buildDirectory.dir("cmake-android-$abi").get().asFile
+
+    val configureTask = tasks.register<Exec>("configureAndroidJni_$abi") {
+        onlyIf { androidNdkToolchain?.isFile == true }
+        doFirst {
+            cmakeBuildDir.mkdirs()
+            outputDir.get().asFile.mkdirs()
+        }
+        workingDir = cmakeBuildDir
+        commandLine(
+            cmakeExecutable, "${rootProject.projectDir}/jni",
+            "-DCMAKE_BUILD_TYPE=Release",
+            "-DCMAKE_TOOLCHAIN_FILE=${androidNdkToolchain?.absolutePath ?: ""}",
+            "-DANDROID_ABI=$abi",
+            "-DANDROID_PLATFORM=android-$androidApiLevel",
+            "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${outputDir.get().asFile.absolutePath}",
+        )
+    }
+
+    val buildTask = tasks.register<Exec>("buildAndroidJni_$abi") {
+        onlyIf { androidNdkToolchain?.isFile == true }
+        dependsOn(configureTask)
+        workingDir = cmakeBuildDir
+        commandLine(cmakeExecutable, "--build", ".", "--config", "Release")
+    }
+
+    buildAndroidJniLibs.configure { dependsOn(buildTask) }
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.jniLibs?.addStaticSourceDirectory(
+            androidJniLibsDir.get().asFile.absolutePath,
+        )
+    }
+}
+
+tasks.matching { it.name.startsWith("merge") && it.name.contains("JniLibFolders") }
+    .configureEach { dependsOn(buildAndroidJniLibs) }
+
 // ==================== Publishing ====================
 mavenPublishing {
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = false)
+    publishToMavenCentral(automaticRelease = true)
     signAllPublications()
 
     coordinates(

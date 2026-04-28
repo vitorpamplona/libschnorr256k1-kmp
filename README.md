@@ -214,19 +214,23 @@ mavenCentralUsername=<central-portal-token-username>
 mavenCentralPassword=<central-portal-token-password>
 
 # GPG signing key (ASCII-armored, single-line with \n escapes, or use in-memory form)
-signingInMemoryKey=<ascii-armored-private-key>
-signingInMemoryKeyId=<key-id>
-signingInMemoryKeyPassword=<passphrase>
+signing.keyId=12345678
+signing.password=some_password
+signing.secretKeyRingFile=/Users/yourusername/.gnupg/secring.gpg
 ```
 
 Equivalent environment variables (for CI):
 
 ```
-ORG_GRADLE_PROJECT_mavenCentralUsername
-ORG_GRADLE_PROJECT_mavenCentralPassword
-ORG_GRADLE_PROJECT_signingInMemoryKey
-ORG_GRADLE_PROJECT_signingInMemoryKeyId
-ORG_GRADLE_PROJECT_signingInMemoryKeyPassword
+ORG_GRADLE_PROJECT_mavenCentralUsername=username
+ORG_GRADLE_PROJECT_mavenCentralPassword=the_password
+
+# see below for how to obtain this
+ORG_GRADLE_PROJECT_signingInMemoryKey=exported_ascii_armored_key
+# Optional
+ORG_GRADLE_PROJECT_signingInMemoryKeyId=12345678
+# If key was created with a password.
+ORG_GRADLE_PROJECT_signingInMemoryKeyPassword=some_password
 ```
 
 ### Dry run locally
