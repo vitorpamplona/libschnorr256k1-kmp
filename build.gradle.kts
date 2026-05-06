@@ -6,5 +6,5 @@ plugins {
 
 allprojects {
     group = "com.vitorpamplona.schnorr256k1"
-    version = "1.0.4"
+    version = "1.0.5"
 }
