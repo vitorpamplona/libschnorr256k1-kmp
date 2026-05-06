@@ -18,7 +18,7 @@ Kotlin Multiplatform bindings for [libschnorr256k1](https://github.com/vitorpamp
 
 ```kotlin
 dependencies {
-    implementation("com.vitorpamplona.schnorr256k1:schnorr256k1-kmp:1.0.3")
+    implementation("com.vitorpamplona.schnorr256k1:schnorr256k1-kmp:1.0.4")
 }
 ```
 
@@ -282,9 +282,6 @@ Central's immutability never bites. Required repository secrets:
 - `MAVEN_CENTRAL_PASSWORD` — Central Portal user-token password
 - `SIGNING_IN_MEMORY_KEY` — ASCII-armored GPG private key (full block)
 - `SIGNING_IN_MEMORY_KEY_PASSWORD` — passphrase for the GPG key (omit if none)
-
-Manual / local publish (skips the JNI subprojects, which is what produced the
-broken 1.0.1 release — prefer the workflow):
 
 ```bash
 # Uploads and releases the multiplatform module only.
