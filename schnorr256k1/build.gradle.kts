@@ -246,7 +246,12 @@ fun registerNativeBuildTasks(targetName: String, cmakeFlags: List<String> = empt
 
 val os = OperatingSystem.current()
 if (os.isLinux) {
-    registerNativeBuildTasks("linuxX64")
+    // libschnorr256k1 turns LTO on whenever the compiler supports it. With GCC that leaves
+    // GIMPLE-only objects (-fno-fat-lto-objects) in the archive, which Kotlin/Native's lld
+    // can't read, so every symbol comes up undefined at link time; with a system clang the
+    // bitcode only links while it isn't newer than Kotlin/Native's LLVM. The per-config
+    // property overrides the library's blanket CMAKE_INTERPROCEDURAL_OPTIMIZATION.
+    registerNativeBuildTasks("linuxX64", listOf("-DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=OFF"))
 }
 if (os.isMacOsX) {
     registerNativeBuildTasks(
