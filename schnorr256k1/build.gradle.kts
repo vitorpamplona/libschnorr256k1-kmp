@@ -209,6 +209,15 @@ if (hostJniProjectName != null) {
 }
 
 // ==================== Native: build static C library for each target ====================
+// libschnorr256k1 turns LTO on whenever the compiler supports it, which leaves compiler IR
+// instead of machine code in the archive. cinterop packs that archive into the klib, so the
+// IR only links where the consumer's linker reads it: Kotlin/Native's lld can't read GCC's
+// GIMPLE at all (every symbol comes up undefined), and LLVM bitcode, from clang or Apple
+// clang, fails on any linker whose LLVM is older than the compiler that wrote it — on Apple,
+// an app built with an older Xcode than the one that published the klib. The per-config
+// property overrides the library's blanket CMAKE_INTERPROCEDURAL_OPTIMIZATION, so these
+// archives hold plain objects. Measured on x86_64 with GCC 13 and clang 18, LTO was within
+// noise of the plain build on every operation (the hot field code is inlined from headers).
 fun registerNativeBuildTasks(targetName: String, cmakeFlags: List<String> = emptyList()) {
     val outputDir = layout.buildDirectory.dir("native/$targetName").get().asFile
     val cmakeBuildDir = layout.buildDirectory.dir("cmake-$targetName").get().asFile
@@ -225,6 +234,7 @@ fun registerNativeBuildTasks(targetName: String, cmakeFlags: List<String> = empt
                 "-DCMAKE_BUILD_TYPE=Release",
                 "-DBUILD_TESTS=OFF",
                 "-DBUILD_BENCH=OFF",
+                "-DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=OFF",
                 "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=${outputDir.absolutePath}",
             ) + cmakeFlags,
         )
@@ -246,12 +256,7 @@ fun registerNativeBuildTasks(targetName: String, cmakeFlags: List<String> = empt
 
 val os = OperatingSystem.current()
 if (os.isLinux) {
-    // libschnorr256k1 turns LTO on whenever the compiler supports it. With GCC that leaves
-    // GIMPLE-only objects (-fno-fat-lto-objects) in the archive, which Kotlin/Native's lld
-    // can't read, so every symbol comes up undefined at link time; with a system clang the
-    // bitcode only links while it isn't newer than Kotlin/Native's LLVM. The per-config
-    // property overrides the library's blanket CMAKE_INTERPROCEDURAL_OPTIMIZATION.
-    registerNativeBuildTasks("linuxX64", listOf("-DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=OFF"))
+    registerNativeBuildTasks("linuxX64")
 }
 if (os.isMacOsX) {
     registerNativeBuildTasks(
