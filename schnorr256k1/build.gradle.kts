@@ -95,7 +95,7 @@ kotlin {
     }
 
     // ==================== JS ====================
-    js(IR) {
+    js {
         browser {
             testTask {
                 useMocha()
@@ -291,7 +291,7 @@ if (os.isMacOsX) {
 val androidJniAbis = listOf("arm64-v8a", "x86_64")
 val androidApiLevel = 26
 
-val pinnedAndroidNdkVersion = "30.0.14904198"
+val pinnedAndroidNdkVersion = "30.0.16248370"
 
 fun resolveAndroidSdkDir(): java.io.File? {
     listOf("ANDROID_HOME", "ANDROID_SDK_ROOT").forEach { key ->
