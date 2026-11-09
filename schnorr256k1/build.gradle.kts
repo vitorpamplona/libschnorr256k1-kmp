@@ -10,8 +10,8 @@ plugins {
     alias(libs.plugins.vanniktech.maven.publish)
 }
 
-group = "com.vitorpamplona.schnorr256k1"
-version = "1.1.0"
+group = rootProject.group
+version = rootProject.version
 
 val libschnorrDir = rootProject.projectDir.resolve("libschnorr256k1")
 
@@ -390,7 +390,7 @@ tasks.matching { it.name.startsWith("merge") && it.name.contains("JniLibFolders"
 // ==================== Publishing ====================
 mavenPublishing {
     publishToMavenCentral(automaticRelease = true)
-    signAllPublications()
+    if (rootProject.extra["signPublications"] == true) signAllPublications()
 
     coordinates(
         groupId = group.toString(),

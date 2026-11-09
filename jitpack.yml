@@ -1,0 +1,20 @@
+# JitPack (jitpack.io) builds a commit or tag on request and serves what lands in ~/.m2:
+#   com.github.vitorpamplona.libschnorr256k1-kmp:schnorr256k1-kmp:<commit or tag>
+# It sets JITPACK=true and VERSION, which build.gradle.kts turns into that group and version,
+# with no signing. Releases go to Maven Central (release.yml); JitPack stands in when they can't.
+#
+# JitPack runs Linux, so a build carries:
+# - the JVM artifact with the linux-x86_64 JNI library, and linux-aarch64's when the cross
+#   compiler installs (the darwin JNI artifacts are empty: macOS JVMs need a Maven Central release);
+# - js, wasmJs and linuxX64;
+# - Android with its JNI libraries when the NDK installs, else an AAR without them;
+# - no Apple targets (their cinterop builds only on macOS).
+jdk:
+  - openjdk21
+before_install:
+  - (sudo apt-get update -qq && sudo apt-get install -y -qq gcc-aarch64-linux-gnu) || echo "no aarch64 cross compiler: the linux-aarch64 JNI artifact will be empty"
+  - (yes | sdkmanager "ndk;30.0.16248370" > /dev/null) || echo "no NDK: the Android AAR will carry no JNI library"
+install:
+  # JitPack's maven-mirror init script points Maven Central at a mirror that lags it by days;
+  # without MAVEN_CENTRAL_MIRROR it does nothing (as Quartz's and libschnorr256k1-kotlin's do).
+  - env -u MAVEN_CENTRAL_MIRROR ./gradlew publishToMavenLocal --no-configuration-cache

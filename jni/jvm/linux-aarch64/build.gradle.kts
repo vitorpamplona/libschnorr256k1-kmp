@@ -97,7 +97,7 @@ tasks.named<Copy>("processResources") {
 
 mavenPublishing {
     publishToMavenCentral(automaticRelease = true)
-    signAllPublications()
+    if (rootProject.extra["signPublications"] == true) signAllPublications()
     coordinates(
         groupId = rootProject.group.toString(),
         artifactId = "schnorr256k1-kmp-jni-jvm-$classifier",
