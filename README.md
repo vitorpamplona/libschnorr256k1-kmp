@@ -48,9 +48,9 @@ dependencies {
 }
 ```
 
-JitPack builds on Linux, so its builds carry the JVM (with the Linux JNI libraries), Android, JS,
-Wasm and linuxX64 targets, but no Apple targets and no macOS JNI libraries: use a Maven Central
-release for those.
+JitPack builds on Linux, so its builds carry the JVM (with the linux-x86_64 JNI library),
+Android (arm64-v8a and x86_64), JS, Wasm and linuxX64 targets, but no Apple targets and no
+linux-aarch64 or macOS JNI libraries: use a Maven Central release for those.
 
 ## API Reference
 
