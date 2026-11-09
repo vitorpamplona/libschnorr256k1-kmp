@@ -117,6 +117,30 @@ export function schnorrSignXOnly(msg, seckey, xonlyPub, auxrand) {
     return result;
 }
 
+export function schnorrSignWithPubKey(msg, seckey, compressedPub, auxrand) {
+    if (seckey.length !== 32 || compressedPub.length !== 33) return null;
+    const sigPtr = M._malloc(64);
+    const skPtr = M._malloc(32);
+    const pkPtr = M._malloc(33);
+    const msgPtr = M._malloc(msg.length);
+    writeBytes(skPtr, seckey);
+    writeBytes(pkPtr, compressedPub);
+    writeBytes(msgPtr, msg);
+    let auxPtr = 0;
+    if (auxrand && auxrand.length === 32) {
+        auxPtr = M._malloc(32);
+        writeBytes(auxPtr, auxrand);
+    }
+    const ok = M._secp256k1c_schnorr_sign_with_pubkey(sigPtr, msgPtr, msg.length, skPtr, pkPtr, auxPtr || 0);
+    const result = ok === 1 ? readBytes(sigPtr, 64) : null;
+    M._free(sigPtr);
+    M._free(skPtr);
+    M._free(pkPtr);
+    M._free(msgPtr);
+    if (auxPtr) M._free(auxPtr);
+    return result;
+}
+
 export function schnorrVerify(sig, msg, pub) {
     const sigPtr = M._malloc(64);
     const msgPtr = M._malloc(msg.length);

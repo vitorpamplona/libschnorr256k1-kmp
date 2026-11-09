@@ -56,6 +56,11 @@ actual object Schnorr256k1 {
         return nativeSchnorrSignXOnly(msg, seckey, xonlyPub, auxrand)
     }
 
+    actual fun schnorrSignWithPubKey(msg: ByteArray, seckey: ByteArray, compressedPub: ByteArray, auxrand: ByteArray?): ByteArray? {
+        ensureLoaded()
+        return nativeSchnorrSignWithPubKey(msg, seckey, compressedPub, auxrand)
+    }
+
     actual fun schnorrVerify(sig: ByteArray, msg: ByteArray, pub: ByteArray): Boolean {
         ensureLoaded()
         return nativeSchnorrVerify(sig, msg, pub)
@@ -102,6 +107,7 @@ actual object Schnorr256k1 {
     @JvmStatic private external fun nativeSecKeyVerify(seckey: ByteArray): Boolean
     @JvmStatic private external fun nativeSchnorrSign(msg: ByteArray, seckey: ByteArray, auxrand: ByteArray?): ByteArray?
     @JvmStatic private external fun nativeSchnorrSignXOnly(msg: ByteArray, seckey: ByteArray, xonlyPub: ByteArray, auxrand: ByteArray?): ByteArray?
+    @JvmStatic private external fun nativeSchnorrSignWithPubKey(msg: ByteArray, seckey: ByteArray, compressedPub: ByteArray, auxrand: ByteArray?): ByteArray?
     @JvmStatic private external fun nativeSchnorrVerify(sig: ByteArray, msg: ByteArray, pub: ByteArray): Boolean
     @JvmStatic private external fun nativeSchnorrVerifyFast(sig: ByteArray, msg: ByteArray, pub: ByteArray): Boolean
     @JvmStatic private external fun nativeSchnorrVerifyBatch(pub: ByteArray, sigs: Array<ByteArray>, msgs: Array<ByteArray>): Boolean

@@ -93,6 +93,21 @@ actual object Schnorr256k1 {
         return (result as? Uint8Array)?.toByteArray()
     }
 
+    actual fun schnorrSignWithPubKey(
+        msg: ByteArray,
+        seckey: ByteArray,
+        compressedPub: ByteArray,
+        auxrand: ByteArray?,
+    ): ByteArray? {
+        val result = bridge().schnorrSignWithPubKey(
+            msg.toUint8Array(),
+            seckey.toUint8Array(),
+            compressedPub.toUint8Array(),
+            auxrand?.toUint8Array(),
+        )
+        return (result as? Uint8Array)?.toByteArray()
+    }
+
     actual fun schnorrVerify(sig: ByteArray, msg: ByteArray, pub: ByteArray): Boolean {
         return bridge().schnorrVerify(
             sig.toUint8Array(),

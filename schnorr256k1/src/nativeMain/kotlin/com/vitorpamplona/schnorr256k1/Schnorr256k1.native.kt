@@ -38,6 +38,7 @@ import schnorr256k1.secp256k1c_pubkey_compress
 import schnorr256k1.secp256k1c_pubkey_create
 import schnorr256k1.secp256k1c_pubkey_tweak_mul
 import schnorr256k1.secp256k1c_schnorr_sign
+import schnorr256k1.secp256k1c_schnorr_sign_with_pubkey
 import schnorr256k1.secp256k1c_schnorr_sign_xonly
 import schnorr256k1.secp256k1c_schnorr_verify
 import schnorr256k1.secp256k1c_schnorr_verify_batch
@@ -141,6 +142,41 @@ actual object Schnorr256k1 {
                                 s.addressOf(0), m.addressOf(0),
                                 msg.size.convert(), sk.addressOf(0),
                                 xp.addressOf(0), null,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        return if (ok == 1) sig.asByteArray() else null
+    }
+
+    actual fun schnorrSignWithPubKey(
+        msg: ByteArray,
+        seckey: ByteArray,
+        compressedPub: ByteArray,
+        auxrand: ByteArray?,
+    ): ByteArray? {
+        ensureLoaded()
+        if (seckey.size != 32 || compressedPub.size != 33) return null
+        val sig = UByteArray(64)
+        val ok = sig.usePinned { s ->
+            seckey.asUByteArray().usePinned { sk ->
+                compressedPub.asUByteArray().usePinned { pk ->
+                    msg.asUByteArray().usePinned { m ->
+                        if (auxrand != null && auxrand.size == 32) {
+                            auxrand.asUByteArray().usePinned { aux ->
+                                secp256k1c_schnorr_sign_with_pubkey(
+                                    s.addressOf(0), m.addressOf(0),
+                                    msg.size.convert(), sk.addressOf(0),
+                                    pk.addressOf(0), aux.addressOf(0),
+                                )
+                            }
+                        } else {
+                            secp256k1c_schnorr_sign_with_pubkey(
+                                s.addressOf(0), m.addressOf(0),
+                                msg.size.convert(), sk.addressOf(0),
+                                pk.addressOf(0), null,
                             )
                         }
                     }
