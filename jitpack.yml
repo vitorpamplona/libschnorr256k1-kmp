@@ -5,17 +5,20 @@
 #
 # JitPack runs Linux, so a build carries:
 # - the JVM artifact with the linux-x86_64 JNI library (the linux-aarch64 and darwin JNI
-#   artifacts are empty: JitPack has no sudo for the aarch64 cross compiler, and no macOS);
-# - Android, with the JNI libraries for arm64-v8a and x86_64 (sdkmanager installs the NDK);
+#   artifacts are empty: JitPack has no sudo for an aarch64 cross compiler, and no macOS);
+# - Android, with the JNI libraries for arm64-v8a and x86_64;
 # - js, wasmJs and linuxX64;
 # - no Apple targets (their cinterop builds only on macOS).
 # Everything else needs a Maven Central release.
 jdk:
   - openjdk21
 before_install:
-  - '(sudo apt-get update -qq && sudo apt-get install -y -qq gcc-aarch64-linux-gnu) || echo "no aarch64 cross compiler, so the linux-aarch64 JNI artifact will be empty"'
-  - '(yes | sdkmanager "ndk;30.0.16248370" > /dev/null) || echo "no NDK, so the Android AAR will carry no JNI library"'
+  # JitPack's images differ from build to build: some lack cmake, and some have an sdkmanager that
+  # cannot run on Java 21 (no JAXB). So this downloads both into the build directory: CMake for the
+  # JNI libraries, and the NDK the build pins (ndk;30.0.16248370 is android-ndk-r30).
+  - curl -sSfL https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-linux-x86_64.tar.gz | tar xz
+  - curl -sSfL -o ndk.zip https://dl.google.com/android/repository/android-ndk-r30-linux.zip && unzip -q ndk.zip && rm ndk.zip
 install:
   # JitPack's maven-mirror init script points Maven Central at a mirror that lags it by days;
   # without MAVEN_CENTRAL_MIRROR it does nothing (as Quartz's and libschnorr256k1-kotlin's do).
-  - env -u MAVEN_CENTRAL_MIRROR ./gradlew publishToMavenLocal --no-configuration-cache
+  - env -u MAVEN_CENTRAL_MIRROR PATH="$PWD/cmake-3.31.6-linux-x86_64/bin:$PATH" ANDROID_NDK_HOME="$PWD/android-ndk-r30" ./gradlew publishToMavenLocal --no-configuration-cache
