@@ -12,8 +12,8 @@
 jdk:
   - openjdk21
 before_install:
-  - (sudo apt-get update -qq && sudo apt-get install -y -qq gcc-aarch64-linux-gnu) || echo "no aarch64 cross compiler: the linux-aarch64 JNI artifact will be empty"
-  - (yes | sdkmanager "ndk;30.0.16248370" > /dev/null) || echo "no NDK: the Android AAR will carry no JNI library"
+  - '(sudo apt-get update -qq && sudo apt-get install -y -qq gcc-aarch64-linux-gnu) || echo "no aarch64 cross compiler, so the linux-aarch64 JNI artifact will be empty"'
+  - '(yes | sdkmanager "ndk;30.0.16248370" > /dev/null) || echo "no NDK, so the Android AAR will carry no JNI library"'
 install:
   # JitPack's maven-mirror init script points Maven Central at a mirror that lags it by days;
   # without MAVEN_CENTRAL_MIRROR it does nothing (as Quartz's and libschnorr256k1-kotlin's do).
