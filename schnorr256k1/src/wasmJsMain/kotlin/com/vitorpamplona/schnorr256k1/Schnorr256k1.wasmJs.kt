@@ -32,6 +32,7 @@ private external interface WasmBridge : JsAny {
     fun seckeyVerify(seckey: Uint8Array): JsBoolean
     fun schnorrSign(msg: Uint8Array, seckey: Uint8Array, auxrand: Uint8Array?): Uint8Array?
     fun schnorrSignXOnly(msg: Uint8Array, seckey: Uint8Array, xonlyPub: Uint8Array, auxrand: Uint8Array?): Uint8Array?
+    fun schnorrSignWithPubKey(msg: Uint8Array, seckey: Uint8Array, compressedPub: Uint8Array, auxrand: Uint8Array?): Uint8Array?
     fun schnorrVerify(sig: Uint8Array, msg: Uint8Array, pub: Uint8Array): JsBoolean
     fun schnorrVerifyFast(sig: Uint8Array, msg: Uint8Array, pub: Uint8Array): JsBoolean
     fun schnorrVerifyBatch(pub: Uint8Array, sigs: JsArray<Uint8Array>, msgs: JsArray<Uint8Array>): JsBoolean
@@ -104,6 +105,20 @@ actual object Schnorr256k1 {
             msg.toUint8Array(),
             seckey.toUint8Array(),
             xonlyPub.toUint8Array(),
+            auxrand?.toUint8Array(),
+        )?.toByteArray()
+    }
+
+    actual fun schnorrSignWithPubKey(
+        msg: ByteArray,
+        seckey: ByteArray,
+        compressedPub: ByteArray,
+        auxrand: ByteArray?,
+    ): ByteArray? {
+        return bridge().schnorrSignWithPubKey(
+            msg.toUint8Array(),
+            seckey.toUint8Array(),
+            compressedPub.toUint8Array(),
             auxrand?.toUint8Array(),
         )?.toByteArray()
     }

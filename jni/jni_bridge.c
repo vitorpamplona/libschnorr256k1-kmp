@@ -168,6 +168,38 @@ Java_com_vitorpamplona_schnorr256k1_Schnorr256k1_nativeSchnorrSignXOnly(
     return ok ? make_bytes(env, sig, 64) : NULL;
 }
 
+JNIEXPORT jbyteArray JNICALL
+Java_com_vitorpamplona_schnorr256k1_Schnorr256k1_nativeSchnorrSignWithPubKey(
+    JNIEnv *env, jclass cls, jbyteArray msg, jbyteArray seckey,
+    jbyteArray compressedPub, jbyteArray auxrand
+) {
+    (void)cls;
+    uint8_t sk[32], pub[33], aux[32], sig[64];
+    if (!get_bytes(env, seckey, sk, 32)) return NULL;
+    if (!get_bytes(env, compressedPub, pub, 33)) return NULL;
+
+    uint8_t stack_msg[512];
+    uint8_t *msg_buf = NULL;
+    size_t msg_len = 0;
+    int needs_free = 0;
+    if (!copy_msg_bytes(env, msg, stack_msg, sizeof(stack_msg),
+                        &msg_buf, &msg_len, &needs_free)) {
+        return NULL;
+    }
+
+    uint8_t *aux_ptr = NULL;
+    if (auxrand) {
+        if (get_bytes(env, auxrand, aux, 32)) {
+            aux_ptr = aux;
+        }
+    }
+
+    int ok = secp256k1c_schnorr_sign_with_pubkey(sig, msg_buf, msg_len, sk, pub, aux_ptr);
+    if (needs_free) free(msg_buf);
+
+    return ok ? make_bytes(env, sig, 64) : NULL;
+}
+
 /* ==================== Schnorr Verify ==================== */
 
 JNIEXPORT jboolean JNICALL

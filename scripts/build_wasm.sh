@@ -26,6 +26,7 @@ mkdir -p "$OUTPUT_DIR"
 
 SOURCES=(
     "$LIB_DIR/src/field.c"
+    "$LIB_DIR/src/field_inv.c"
     "$LIB_DIR/src/scalar.c"
     "$LIB_DIR/src/point.c"
     "$LIB_DIR/src/schnorr.c"
@@ -39,6 +40,7 @@ EXPORTED_FUNCTIONS='[
     "_secp256k1c_seckey_verify",
     "_secp256k1c_schnorr_sign",
     "_secp256k1c_schnorr_sign_xonly",
+    "_secp256k1c_schnorr_sign_with_pubkey",
     "_secp256k1c_schnorr_verify",
     "_secp256k1c_schnorr_verify_fast",
     "_secp256k1c_schnorr_verify_batch",

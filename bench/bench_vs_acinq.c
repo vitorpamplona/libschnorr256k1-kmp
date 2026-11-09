@@ -94,6 +94,8 @@ int main(void) {
     secp256k1c_pubkey_create(our_pub65, PRIVKEY);
     uint8_t our_xonly[32];
     memcpy(our_xonly, our_pub65 + 1, 32);
+    uint8_t our_pub33[33];
+    secp256k1c_pubkey_compress(our_pub33, our_pub65);
 
     /* Messages */
     uint8_t msg[32];
@@ -169,7 +171,7 @@ int main(void) {
     t0 = now_us();
     for (int i = 0; i < N; i++) {
         uint8_t s[64];
-        secp256k1c_schnorr_sign_xonly(s, msg, 32, PRIVKEY, our_xonly, NULL);
+        secp256k1c_schnorr_sign_with_pubkey(s, msg, 32, PRIVKEY, our_pub33, NULL);
     }
     double our_sign_cached = (now_us() - t0) / N;
     printf("%-30s %10.1f   %10.1f   %8.2fx\n", "sign (cached pubkey)", acinq_sign_cached, our_sign_cached, acinq_sign_cached/our_sign_cached);
