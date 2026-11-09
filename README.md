@@ -26,16 +26,31 @@ For JVM consumers, the right native binary is resolved automatically — the
 `schnorr256k1-kmp-jvm` artifact pulls in four classifier-style siblings that
 each ship a prebuilt `libschnorr256k1_jni.{so,dylib}` as a classpath resource:
 
-- `com.vitorpamplona:schnorr256k1-kmp-jni-jvm-linux-x86_64`
-- `com.vitorpamplona:schnorr256k1-kmp-jni-jvm-linux-aarch64`
-- `com.vitorpamplona:schnorr256k1-kmp-jni-jvm-darwin-x86_64`
-- `com.vitorpamplona:schnorr256k1-kmp-jni-jvm-darwin-aarch64`
+- `com.vitorpamplona.schnorr256k1:schnorr256k1-kmp-jni-jvm-linux-x86_64`
+- `com.vitorpamplona.schnorr256k1:schnorr256k1-kmp-jni-jvm-linux-aarch64`
+- `com.vitorpamplona.schnorr256k1:schnorr256k1-kmp-jni-jvm-darwin-x86_64`
+- `com.vitorpamplona.schnorr256k1:schnorr256k1-kmp-jni-jvm-darwin-aarch64`
 
 `NativeLoader` (in the JVM source set) detects `os.name`/`os.arch` at runtime,
 extracts the matching binary from the classpath to a temp directory, and
 `System.load`s it. No `java.library.path` setup or manual `build_native.sh`
 step is required for downstream JVM consumers — the JVM cross-validation
 benchmark also runs out of the box.
+
+### JitPack
+
+Any commit or tag also builds on [JitPack](https://jitpack.io) (`jitpack.yml`):
+
+```kotlin
+repositories { maven("https://jitpack.io") }
+dependencies {
+    implementation("com.github.vitorpamplona.libschnorr256k1-kmp:schnorr256k1-kmp:<commit or tag>")
+}
+```
+
+JitPack builds on Linux, so its builds carry the JVM (with the linux-x86_64 JNI library),
+Android (arm64-v8a and x86_64), JS, Wasm and linuxX64 targets, but no Apple targets and no
+linux-aarch64 or macOS JNI libraries: use a Maven Central release for those.
 
 ## API Reference
 
