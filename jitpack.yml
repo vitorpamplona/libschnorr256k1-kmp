@@ -10,6 +10,8 @@
 # - js, wasmJs and linuxX64;
 # - no Apple targets (their cinterop builds only on macOS).
 # Everything else needs a Maven Central release.
+# The default image's GCC is 5.4, too old for libschnorr256k1's -march=x86-64-v2; "latest" has 11.4.
+image: latest
 jdk:
   - openjdk21
 before_install:
