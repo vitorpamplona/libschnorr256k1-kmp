@@ -251,6 +251,10 @@ fun registerNativeBuildTasks(targetName: String, cmakeFlags: List<String> = empt
             it.name.endsWith(targetName.replaceFirstChar { c -> c.uppercase() })
     }.configureEach {
         dependsOn(buildTask)
+        // cinterop packs the archive it finds through -libraryPath, which Gradle sees only as a
+        // string: without this, a change to the C sources (but not the header) left the task
+        // up to date, and the klib kept the old archive.
+        inputs.files(outputDir).withPropertyName("nativeLibrary")
     }
 }
 
