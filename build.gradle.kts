@@ -12,6 +12,6 @@ val jitpack = providers.environmentVariable("JITPACK").orNull == "true"
 
 allprojects {
     group = if (jitpack) "com.github.vitorpamplona.libschnorr256k1-kmp" else "com.vitorpamplona.schnorr256k1"
-    version = providers.environmentVariable("VERSION").orNull?.takeIf { jitpack } ?: "1.1.0"
+    version = providers.environmentVariable("VERSION").orNull?.takeIf { jitpack } ?: "1.1.1"
     extra["signPublications"] = !jitpack
 }
