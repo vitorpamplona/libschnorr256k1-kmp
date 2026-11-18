@@ -1,3 +1,6 @@
+import org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile
+import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform) apply false
     alias(libs.plugins.android.kmp.library) apply false
@@ -14,4 +17,13 @@ allprojects {
     group = if (jitpack) "com.github.vitorpamplona.libschnorr256k1-kmp" else "com.vitorpamplona.schnorr256k1"
     version = providers.environmentVariable("VERSION").orNull?.takeIf { jitpack } ?: "1.1.1"
     extra["signPublications"] = !jitpack
+}
+
+// Kotlin/Native and Kotlin/JS klibs record the path of every source file. Recording it relative to
+// this repository instead of the checkout's absolute path keeps a klib rebuilt in any folder
+// byte-identical to the released one.
+subprojects {
+    val klibPathBase = "-Xklib-relative-path-base=${rootDir.absolutePath}"
+    tasks.withType<KotlinNativeCompile>().configureEach { compilerOptions.freeCompilerArgs.add(klibPathBase) }
+    tasks.withType<Kotlin2JsCompile>().configureEach { compilerOptions.freeCompilerArgs.add(klibPathBase) }
 }
