@@ -9,6 +9,8 @@ import org.gradle.internal.os.OperatingSystem
 plugins {
     `java-library`
     alias(libs.plugins.vanniktech.maven.publish)
+    // Releases also go to Nostr + Blossom: publishToNostr. Its relays come from gradle.properties (magpie.*).
+    alias(libs.plugins.magpie.publish)
 }
 
 group = rootProject.group

@@ -8,6 +8,14 @@
 #   macos-14      -> :jni-jvm-darwin-aarch64, :jni-jvm-darwin-x86_64 (via -DCMAKE_OSX_ARCHITECTURES=x86_64)
 #                    :schnorr256k1 (multiplatform module: android/ios*/macosArm64/jvm/js/wasm-js)
 #
+# Two more jobs publish the same artifacts, from the same hosts, to Nostr + Blossom through
+# Magpie's publishToNostr (the plugin version is in libs.versions.toml, the relays in
+# gradle.properties). They run beside the Maven Central jobs and don't depend on them, so
+# Central's upload limit can't hold back a Nostr release. Each artifact is its own release: one
+# kind 3071 event per Gradle project, signed by the release key through MAGPIE_BUNKER, a NIP-46
+# bunker URI, so the signer approves each one (the job waits for it). Magpie refuses to sign
+# unless vitorpamplona.com/.well-known/nostr.json names the key as "releases".
+#
 # Trigger: push a `v*` tag (e.g. `git tag v1.0.2 && git push --tags`), or run
 # manually via the Actions tab.
 #
@@ -16,6 +24,7 @@
 #   MAVEN_CENTRAL_PASSWORD           Sonatype Central Portal user-token password
 #   SIGNING_IN_MEMORY_KEY            ASCII-armored GPG private key (full block)
 #   SIGNING_IN_MEMORY_KEY_PASSWORD   Passphrase for the GPG key (omit secret if none)
+#   MAGPIE_BUNKER                    NIP-46 bunker:// URI for the Nostr release key
 
 name: Release
 
@@ -86,3 +95,60 @@ jobs:
             :jni-jvm-darwin-aarch64:publishAndReleaseToMavenCentral \
             :jni-jvm-darwin-x86_64:publishAndReleaseToMavenCentral \
             :schnorr256k1:publishAndReleaseToMavenCentral
+
+  # The GPG key signs the files as it does for Maven Central, so the .asc files ship on Nostr too.
+  nostr-linux-jni:
+    name: Publish linux JNI artifacts to Nostr
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install aarch64-linux-gnu cross-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Publish :jni-jvm-linux-{x86_64,aarch64}
+        env:
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_IN_MEMORY_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
+          MAGPIE_BUNKER: ${{ secrets.MAGPIE_BUNKER }}
+        run: |
+          ./gradlew --no-daemon --stacktrace \
+            :jni-jvm-linux-x86_64:publishToNostr \
+            :jni-jvm-linux-aarch64:publishToNostr
+
+  nostr-macos:
+    name: Publish darwin JNI + multiplatform artifacts to Nostr
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Publish :jni-jvm-darwin-* and :schnorr256k1
+        env:
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_IN_MEMORY_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
+          MAGPIE_BUNKER: ${{ secrets.MAGPIE_BUNKER }}
+        run: |
+          ./gradlew --no-daemon --stacktrace \
+            :jni-jvm-darwin-aarch64:publishToNostr \
+            :jni-jvm-darwin-x86_64:publishToNostr \
+            :schnorr256k1:publishToNostr
