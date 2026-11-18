@@ -284,7 +284,7 @@ publishes every artifact for that version in one go:
 | Runner          | Artifacts                                                                                                              |
 |-----------------|------------------------------------------------------------------------------------------------------------------------|
 | `ubuntu-latest` | `:jni-jvm-linux-x86_64` (native), `:jni-jvm-linux-aarch64` (cross via `aarch64-linux-gnu-gcc`)                          |
-| `macos-14`      | `:jni-jvm-darwin-aarch64` (native), `:jni-jvm-darwin-x86_64` (cross via `-DCMAKE_OSX_ARCHITECTURES=x86_64`), `:schnorr256k1` (Android/iOS/macOS arm64/JVM/JS/Wasm) |
+| `macos-latest`  | `:jni-jvm-darwin-aarch64` (native), `:jni-jvm-darwin-x86_64` (cross via `-DCMAKE_OSX_ARCHITECTURES=x86_64`), `:schnorr256k1` (Android/iOS/macOS arm64/JVM/JS/Wasm) |
 
 Each `:jni-jvm-*` coordinate is published from exactly one runner so Maven
 Central's immutability never bites. Required repository secrets:

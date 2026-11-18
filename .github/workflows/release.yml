@@ -5,7 +5,7 @@
 # `:jni-jvm-{classifier}` is published from exactly one runner:
 #
 #   ubuntu-latest -> :jni-jvm-linux-x86_64, :jni-jvm-linux-aarch64 (via aarch64-linux-gnu cross)
-#   macos-14      -> :jni-jvm-darwin-aarch64, :jni-jvm-darwin-x86_64 (via -DCMAKE_OSX_ARCHITECTURES=x86_64)
+#   macos-latest  -> :jni-jvm-darwin-aarch64, :jni-jvm-darwin-x86_64 (via -DCMAKE_OSX_ARCHITECTURES=x86_64)
 #                    :schnorr256k1 (multiplatform module: android/ios*/macosArm64/jvm/js/wasm-js)
 #
 # Two more jobs publish the same artifacts, from the same hosts, to Nostr + Blossom through
@@ -71,7 +71,7 @@ jobs:
 
   publish-macos:
     name: Publish darwin JNI + multiplatform artifacts
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
         with:
@@ -129,7 +129,7 @@ jobs:
 
   nostr-macos:
     name: Publish darwin JNI + multiplatform artifacts to Nostr
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
         with:
