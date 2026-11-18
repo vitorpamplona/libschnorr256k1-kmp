@@ -22,6 +22,22 @@ dependencies {
 }
 ```
 
+Releases go to Maven Central and, through [Magpie](https://github.com/vitorpamplona/magpie), to
+Nostr + Blossom. To take them from Nostr + Blossom (signed by the key
+`vitorpamplona.com/.well-known/nostr.json` names as `releases`), add Magpie's settings plugin in
+`settings.gradle.kts`, and commit the `gradle/magpie.lock` it writes. Gradle has to run on Java 21
+or newer:
+
+```kotlin
+plugins {
+    id("com.vitorpamplona.magpie") version "0.1.1"
+}
+
+magpie {
+    group("com.vitorpamplona.schnorr256k1")
+}
+```
+
 For JVM consumers, the right native binary is resolved automatically — the
 `schnorr256k1-kmp-jvm` artifact pulls in four classifier-style siblings that
 each ship a prebuilt `libschnorr256k1_jni.{so,dylib}` as a classpath resource:
@@ -277,6 +293,13 @@ Central's immutability never bites. Required repository secrets:
 - `MAVEN_CENTRAL_PASSWORD` — Central Portal user-token password
 - `SIGNING_IN_MEMORY_KEY` — ASCII-armored GPG private key (full block)
 - `SIGNING_IN_MEMORY_KEY_PASSWORD` — passphrase for the GPG key (omit if none)
+- `MAGPIE_BUNKER` — NIP-46 `bunker://` URI for the Nostr release key
+
+Beside the two Maven Central jobs, `nostr-linux-jni` and `nostr-macos` publish the same artifacts
+from the same runners to Nostr + Blossom with Magpie's `publishToNostr`: one signed release event
+(kind 3071) per artifact, which the signer approves. They don't depend on the Central jobs, so a
+Central failure doesn't hold them back; re-run whichever failed. A version already on Nostr fails
+its job: releases are immutable.
 
 ```bash
 # Uploads and releases the multiplatform module only.

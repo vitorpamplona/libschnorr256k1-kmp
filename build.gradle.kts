@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform) apply false
     alias(libs.plugins.android.kmp.library) apply false
     alias(libs.plugins.vanniktech.maven.publish) apply false
+    alias(libs.plugins.magpie.publish) apply false
 }
 
 // JitPack (jitpack.io, jitpack.yml) sets JITPACK=true and VERSION (the tag or commit it builds), and

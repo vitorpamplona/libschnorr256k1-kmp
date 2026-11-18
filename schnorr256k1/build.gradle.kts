@@ -8,6 +8,8 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.vanniktech.maven.publish)
+    // Releases also go to Nostr + Blossom: publishToNostr. Its relays come from gradle.properties (magpie.*).
+    alias(libs.plugins.magpie.publish)
 }
 
 group = rootProject.group
