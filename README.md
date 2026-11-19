@@ -30,7 +30,7 @@ or newer:
 
 ```kotlin
 plugins {
-    id("com.vitorpamplona.magpie") version "0.2.0"
+    id("com.vitorpamplona.magpie") version "0.2.3"
 }
 
 magpie {
